@@ -71,6 +71,9 @@ def load_dataset(dataset_name):
     features, train/valid/test sets and the number of classes.
     """
     dataset = gb.BuiltinDataset(dataset_name).load()
+
+    print(dataset)
+
     print(f"Loaded dataset: {dataset.tasks[0].metadata['name']}")
 
     graph = dataset.graph
@@ -153,7 +156,8 @@ def extract_embed(node_embed, input_nodes):
 
 def extract_node_features(name, block, data, node_embed, device):
     """Extract the node features from embedding layer or raw features."""
-    if name == "ogbn-mag":
+    # if name == "ogbn-mag":
+    if name == "ogbn-mag" or name == "igb-heterogeneous-tiny" or args.dataset == "igb-heterogeneous-small":
         input_nodes = {
             k: v.to(device) for k, v in block.srcdata[dgl.NID].items()
         }
@@ -419,7 +423,8 @@ def evaluate(
     model.eval()
     category = "paper"
     # An evaluator for the dataset.
-    if name == "ogbn-mag":
+    # if name == "ogbn-mag":
+    if name == "ogbn-mag" or name == "igb-heterogeneous-tiny" or args.dataset == "igb-heterogeneous-small":
         evaluator = Evaluator(name=name)
     else:
         evaluator = MAG240MEvaluator()
@@ -527,9 +532,13 @@ def train(
             logits = model(blocks, node_features)[category]
 
             y_hat = logits.log_softmax(dim=-1)
+            breakpoint()
             loss = F.nll_loss(y_hat, data.labels[category].long())
+            breakpoint()
             loss.backward()
+            breakpoint()
             optimizer.step()
+            breakpoint()
 
             total_loss += loss.item() * num_seeds
 
@@ -578,7 +587,8 @@ def main(args):
     # `institution` are generated in advance and stored in the feature store.
     # For `ogbn-mag`, we generate the features on the fly.
     embed_layer = None
-    if args.dataset == "ogbn-mag":
+    # if args.dataset == "ogbn-mag":
+    if args.dataset == "ogbn-mag" or args.dataset == "igb-heterogeneous-tiny" or args.dataset == "igb-heterogeneous-small":
         # Create the embedding layer and move it to the appropriate device.
         embed_layer = rel_graph_embed(g, feat_size).to(device)
         print(
@@ -609,6 +619,7 @@ def main(args):
         model.parameters(),
         [] if embed_layer is None else embed_layer.parameters(),
     )
+    breakpoint()
     optimizer = torch.optim.Adam(all_params, lr=0.01)
 
     expected_max = int(psutil.cpu_count(logical=False))
@@ -653,7 +664,8 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         default="ogbn-mag",
-        choices=["ogbn-mag", "ogb-lsc-mag240m"],
+        # choices=["ogbn-mag", "ogb-lsc-mag240m"],
+        choices=["ogbn-mag", "ogb-lsc-mag240m", "igb-heterogeneous-tiny", "igb-heterogeneous-small"],
         help="Dataset name. Possible values: ogbn-mag, ogb-lsc-mag240m",
     )
     parser.add_argument("--num_epochs", type=int, default=3)
